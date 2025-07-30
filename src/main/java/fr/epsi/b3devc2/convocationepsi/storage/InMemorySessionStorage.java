@@ -1,76 +1,106 @@
 package fr.epsi.b3devc2.convocationepsi.storage;
 
-
-import fr.epsi.b3devc2.convocationepsi.dto.RecipientDTO;
+import fr.epsi.b3devc2.convocationepsi.dto.CandidatDto;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
+@Component
 @Slf4j
-@Service
 public class InMemorySessionStorage {
 
-    private final Map<String, List<RecipientDTO>> sessionData = new ConcurrentHashMap<>();
-    private final Map<String, Map<Long, byte[]>> generatedDocuments = new ConcurrentHashMap<>();
-    private final AtomicLong idGenerator = new AtomicLong(1);
+    private final Map<String, List<CandidatDto>> candidatsStorage = new ConcurrentHashMap<>();
+    private final Map<String, byte[]> filesStorage = new ConcurrentHashMap<>();
+    private final Map<String, Map<CandidatDto, byte[]>> individualFilesStorage = new ConcurrentHashMap<>();
 
-    public void storeRecipients(String sessionId, List<RecipientDTO> recipients) {
-        // Assigner des IDs uniques aux destinataires
-        recipients.forEach(recipient -> {
-            if (recipient.getId() == null) {
-                recipient.setId(idGenerator.getAndIncrement());
-            }
-        });
-
-        sessionData.put(sessionId, recipients);
-        log.info("Stockage de {} destinataires pour la session {}", recipients.size(), sessionId);
+    /**
+     * Génère un nouvel ID de session
+     */
+    public String generateSessionId() {
+        return UUID.randomUUID().toString();
     }
 
-    public List<RecipientDTO> getRecipients(String sessionId) {
-        return sessionData.get(sessionId);
+    /**
+     * Stocke la liste des candidats pour une session
+     */
+    public void storeCandidats(String sessionId, List<CandidatDto> candidats) {
+        log.info("Stockage de {} candidats pour la session {}", candidats.size(), sessionId);
+        candidatsStorage.put(sessionId, candidats);
     }
 
-    public void storeGeneratedDocument(String sessionId, Long recipientId, byte[] document) {
-        generatedDocuments.computeIfAbsent(sessionId, k -> new ConcurrentHashMap<>())
-                .put(recipientId, document);
-        log.debug("Document généré stocké pour le destinataire {} de la session {}", recipientId, sessionId);
+    /**
+     * Récupère la liste des candidats pour une session
+     */
+    public List<CandidatDto> getCandidats(String sessionId) {
+        List<CandidatDto> candidats = candidatsStorage.get(sessionId);
+        if (candidats == null) {
+            log.warn("Aucun candidat trouvé pour la session {}", sessionId);
+        }
+        return candidats;
     }
 
-    public byte[] getGeneratedDocument(String sessionId, Long recipientId) {
-        Map<Long, byte[]> sessionDocs = generatedDocuments.get(sessionId);
-        return sessionDocs != null ? sessionDocs.get(recipientId) : null;
+    /**
+     * Stocke un fichier zip généré
+     */
+    public void storeFile(String sessionId, byte[] fileData) {
+        log.info("Stockage du fichier zip pour la session {}", sessionId);
+        filesStorage.put(sessionId, fileData);
     }
 
-    public Map<Long, byte[]> getAllGeneratedDocuments(String sessionId) {
-        return generatedDocuments.getOrDefault(sessionId, new ConcurrentHashMap<>());
+    /**
+     * Récupère un fichier zip
+     */
+    public byte[] getFile(String sessionId) {
+        byte[] fileData = filesStorage.get(sessionId);
+        if (fileData == null) {
+            log.warn("Aucun fichier trouvé pour la session {}", sessionId);
+        }
+        return fileData;
+    }
+    // Nouveau : stocke les fichiers individuels
+    public void storeIndividualFiles(String sessionId, Map<CandidatDto, byte[]> files) {
+        individualFilesStorage.put(sessionId, files);
     }
 
+    // Nouveau : récupère les fichiers individuels
+    public Map<CandidatDto, byte[]> getIndividualFiles(String sessionId) {
+        return individualFilesStorage.get(sessionId);
+    }
+
+    /**
+     * Supprime les données d'une session
+     */
     public void clearSession(String sessionId) {
-        sessionData.remove(sessionId);
-        generatedDocuments.remove(sessionId);
-        log.info("Session {} nettoyée", sessionId);
+        log.info("Suppression des données de la session {}", sessionId);
+        candidatsStorage.remove(sessionId);
+        filesStorage.remove(sessionId);
     }
 
-    public boolean hasSession(String sessionId) {
-        return sessionData.containsKey(sessionId);
+    /**
+     * Vérifie si une session existe
+     */
+    public boolean sessionExists(String sessionId) {
+        return candidatsStorage.containsKey(sessionId);
     }
 
-    public int getRecipientCount(String sessionId) {
-        List<RecipientDTO> recipients = sessionData.get(sessionId);
-        return recipients != null ? recipients.size() : 0;
+    /**
+     * Récupère le nombre de candidats pour une session
+     */
+    public int getCandidatsCount(String sessionId) {
+        List<CandidatDto> candidats = candidatsStorage.get(sessionId);
+        return candidats != null ? candidats.size() : 0;
     }
 
-    public List<RecipientDTO> getRecipientsByType(String sessionId,  fr.epsi.b3devc2.convocationepsi.model.enums.RecipientType type) {
-        List<RecipientDTO> recipients = sessionData.get(sessionId);
-        if (recipients == null) return null;
-
-        return recipients.stream()
-                .filter(recipient -> recipient.getType() == type)
-                .collect(Collectors.toList());
+    /**
+     * Nettoyage périodique des sessions anciennes (optionnel)
+     */
+    public void cleanup() {
+        log.info("Nettoyage du stockage en mémoire");
+        candidatsStorage.clear();
+        filesStorage.clear();
     }
 }
