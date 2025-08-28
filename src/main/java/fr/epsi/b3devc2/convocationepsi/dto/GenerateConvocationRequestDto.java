@@ -37,18 +37,18 @@ public class GenerateConvocationRequestDto {
     @NotNull(message = "Durée épreuve ID est obligatoire")
     private Long dureeEpreuveId;
 
-    @NotNull(message = "Date rendu est obligatoire")
+
     private LocalDate dateRendu;
 
-    @NotNull(message = "Heure rendu est obligatoire")
+
     private LocalTime heureRendu;
 
-    @NotBlank(message = "Lien Drive est obligatoire")
+
     private String lienDrive;
 
 
     // champ pour signature image
-    @NotBlank(message = "Signature image est obligatoire")
+
     private MultipartFile signatureImage;
 
 }
